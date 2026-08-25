@@ -1,0 +1,28 @@
+# Environment variables
+.env
+.env.local
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Node.js / Next.js
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Database & Storage
+*.db
+scapper.db
+backend/storage/raw/*
+backend/storage/exports/*
+!backend/storage/raw/.gitkeep
+!backend/storage/exports/.gitkeep

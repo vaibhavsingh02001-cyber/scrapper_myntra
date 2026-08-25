@@ -1,0 +1,64 @@
+Part 1: Problem Statement
+
+Context
+Myntra's wishlist feature has high adoption but a large, largely unexplained drop-off between "wishlisted" and "purchased." Existing analytics (funnel drop-off %, time-to-purchase, category-level conversion) tell us that users stall — not why. Internal data can show correlation (e.g., users who view size charts convert less) but can't explain the underlying intent or hesitation without qualitative signal, and that qualitative signal currently isn't collected or analyzed systematically.
+
+Problem
+We don't have a structured, quantified understanding of what causes wishlist-to-purchase drop-off, so we can't prioritize which interventions (size confidence, social proof, price alerts, styling guidance, etc.) will actually move conversion. Anecdote-driven prioritization risks solving low-impact problems well.
+
+Hypothesis
+A meaningful share of wishlist abandonment isn't disinterest — it's unresolved uncertainty (fit, styling, occasion-fit, price timing, trust in reviews/photos) that public conversations about fashion e-commerce already describe in detail, at scale, outside Myntra's own data. If we systematically mine that external signal, we can identify and size opportunity areas before running expensive internal experiments.
+
+Goal
+Build an AI-powered discovery engine that ingests public conversations (app store reviews, Reddit, YouTube comments, etc.) about fashion shopping behavior, and turns unstructured text into a ranked, quantified list of opportunity areas tied to wishlist→purchase conversion — as an evidence base for Part 2 (the actual product proposal).
+
+Primary metric
+Wishlist-to-purchase conversion rate (%). Secondary: time-to-purchase after wishlist add, repeat-wishlist-without-purchase rate (bookmarking behavior).
+
+Scope
+In scope: mining public text data for purchase-blocking uncertainty patterns, segment differences, and comparison behavior; quantifying frequency/severity/sentiment per theme; producing an opportunity-sizing output.
+Out of scope (for Part 1): the actual product solution, UI/feature design, internal Myntra clickstream data (unless you have access — flag if you do, changes the design).
+
+Success criteria for the discovery engine itself
+
+Produces a taxonomy of drop-off reasons, not just topics (a topic is "size"; a reason is "can't tell if this brand's M runs small")
+Each theme is quantified (share of voice, sentiment, frequency trend) not just described
+Themes are traceable back to source quotes for credibility
+Output ranks opportunities, doesn't just list them
+Part 2: Discovery Engine Architecture (for Antigravity build spec)
+
+1. Data ingestion layer
+
+Reddit: use the official Reddit API (PRAW) with a registered app — free tier, ToS-compliant, avoids scraping fragility. Target subs like r/IndianFashionAddicts, r/IndianSkincareAddicts, r/india, myntra-adjacent threads.
+App Store / Play Store reviews: Apple's RSS review feed and Google Play's official review scraping are both allowed within reasonable rate limits (google-play-scraper, app-store-scraper npm/py libs are commonly used for this).
+YouTube comments: YouTube Data API v3 (official, quota-based, free tier sufficient for sampling).
+Twitter/X, Instagram, fashion forums: much more ToS-restrictive — flag this as a constraint. Realistic MVP scope is Reddit + app store reviews + YouTube comments; treat the rest as "nice to have if API access exists."
+Store raw text with metadata (source, date, upvotes/likes, platform) in a simple structured store — even SQLite is fine for a portfolio-scale project.
+
+2. Relevance filtering
+Not all fashion chatter is about Myntra/AJIO or purchase decisions. First pass: embedding-based similarity filter (e.g., a small set of seed queries like "wishlist," "size chart," "returned it," "still deciding") to cut the corpus down before spending LLM tokens on it.
+
+3. Taxonomy-first coding (this is the part people skip and shouldn't)
+Before running any LLM classification, define the coding scheme deductively from your research questions — this becomes the label set the LLM tags against:
+
+Trigger for wishlisting (price-wait, styling-inspiration, bookmarking-for-later, gifting, comparison-shopping)
+Blocker type (fit/size uncertainty, price timing, trust/reviews, occasion mismatch, styling doubt, competitor comparison, social validation needed)
+Intent strength signal (explicit "I'll buy when X" vs vague "saved for later")
+Segment cues if inferable (first-time buyer language, repeat-shopper language, budget-conscious language)
+
+Then use the LLM (via the Claude API, since you're already set up for Claudeception-style calls) to tag each post/review against this taxonomy with a structured JSON output — not open-ended summarization. This is the difference between "discovery engine" and "sentiment analysis," which your prompt explicitly said to avoid.
+
+4. Quantification layer
+For each taxonomy label: frequency (% of corpus), sentiment polarity, trend over time if dates are available, and co-occurrence with other labels (e.g., "size uncertainty" + "no returns confidence" appearing together signals a compounding blocker, not two separate ones).
+
+5. Opportunity scoring
+Combine frequency × sentiment severity × (optionally) an estimated reach proxy to rank themes — essentially a lightweight RICE/ICE score adapted for qualitative-mining output, so Part 2 has a ranked list to build the actual proposal from, not just a themed report.
+
+6. Output
+A structured opportunity map: theme → quantified size → representative (paraphrased, not quoted verbatim) evidence → which of your original research questions it answers. This is what you hand off as the evidence base when you write the actual product proposal in Part 2.
+
+One thing worth deciding before you build: do you actually have access to any Myntra internal data, or is this entirely external-signal-only? That materially changes whether "quantify" means quantify mentions in public text (achievable) or quantify actual conversion impact (needs internal data you probably don't have access to). Worth stating that constraint explicitly in your problem statement so evaluators don't expect internal-data-grade precision.
+
+Want me to turn this into a build-ready spec doc (like your Moments/Rajvansh specs) formatted for Antigravity, or draft the actual coding taxonomy JSON schema next?
+
+
