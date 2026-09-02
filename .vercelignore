@@ -1,0 +1,5 @@
+# Ignore Streamlit apps and Python virtualenvs for Vercel Next.js build
+app.py
+streamlit_app.py
+.venv/
+scratch/
