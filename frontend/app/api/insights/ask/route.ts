@@ -96,50 +96,50 @@ export async function POST(req: NextRequest) {
     const groqKey = process.env.GROQ_API_KEY;
 
     if (groqKey && groqKey !== 'gsk_your_groq_api_key_here') {
-      try {
-        const { Groq } = await import('groq-sdk');
-        const groq = new Groq({ apiKey: groqKey });
+      const candidateModels = ['openai/gpt-oss-20b', 'qwen/qwen3.8-27b', 'groq/compound-mini'];
+      const systemPrompt =
+        'You are the Myntra Wishlist Intelligence Engine AI Assistant.\n' +
+        'Answer questions grounded strictly in the provided 20,050+ customer reviews research dataset:\n\n' +
+        RICH_RESEARCH_CONTEXT + '\n\n' +
+        'Instructions:\n' +
+        '1. Provide a detailed, distinct, and well-structured answer tailored specifically to the exact question asked.\n' +
+        '2. Structure your response with clean markdown headings, bullet points, statistics/percentages, and relevant verbatim customer quotes.\n' +
+        '3. Do NOT repeat generic default summaries.';
 
-        const candidateModels = ['openai/gpt-oss-20b', 'qwen/qwen3.8-27b', 'groq/compound-mini'];
-
-        for (const model of candidateModels) {
-          try {
-            const completion = await groq.chat.completions.create({
+      for (const model of candidateModels) {
+        try {
+          const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${groqKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
               model,
               messages: [
-                {
-                  role: 'system',
-                  content: (
-                    'You are the Myntra Wishlist Intelligence Engine AI Assistant.\n' +
-                    'Answer questions grounded strictly in the provided 20,050+ customer reviews research dataset:\n\n' +
-                    RICH_RESEARCH_CONTEXT + '\n\n' +
-                    'Instructions:\n' +
-                    '1. Provide a detailed, distinct, and well-structured answer tailored specifically to the exact question asked.\n' +
-                    '2. Structure your response with clean markdown headings, bullet points, statistics/percentages, and relevant verbatim customer quotes.\n' +
-                    '3. Do NOT repeat generic default summaries.'
-                  )
-                },
+                { role: 'system', content: systemPrompt },
                 { role: 'user', content: question }
               ],
               temperature: 0.3,
               max_tokens: 650
-            });
+            }),
+            signal: AbortSignal.timeout(8000),
+          });
 
-            const ans = completion.choices[0]?.message?.content;
-            if (ans && ans.trim().length > 20) {
-              return NextResponse.json({
-                question,
-                answer: ans,
-                data_source: `Groq LLaMA 3 (${model})`,
-                total_reviews_used: 20050
-              });
-            }
-          } catch {
-            continue;
+          if (!res.ok) continue;
+          const data = await res.json();
+          const ans: string = data?.choices?.[0]?.message?.content ?? '';
+          if (ans.trim().length > 20) {
+            return NextResponse.json({
+              question,
+              answer: ans,
+              data_source: `Groq (${model})`,
+              total_reviews_used: 20050
+            });
           }
+        } catch {
+          continue;
         }
-      } catch {
-        // Fallback
       }
     }
 
